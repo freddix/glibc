@@ -1,0 +1,42 @@
+diff -aurN glibc-2.16.0.orig/sysdeps/unix/sysv/linux/paths.h glibc-2.16.0/sysdeps/unix/sysv/linux/paths.h
+--- glibc-2.16.0.orig/sysdeps/unix/sysv/linux/paths.h	2012-08-06 20:32:18.304739073 +0200
++++ glibc-2.16.0/sysdeps/unix/sysv/linux/paths.h	2012-08-06 20:35:43.858038112 +0200
+@@ -33,15 +33,15 @@
+ #define	_PATHS_H_
+ 
+ /* Default search path. */
+-#define	_PATH_DEFPATH	"/usr/bin:/bin"
++#define	_PATH_DEFPATH	"/usr/bin"
+ /* All standard utilities path. */
+ #define	_PATH_STDPATH \
+-	"/usr/bin:/bin:/usr/sbin:/sbin"
++	"/usr/bin:/bin:/usr/sbin"
+ 
+-#define	_PATH_BSHELL	"/bin/sh"
++#define	_PATH_BSHELL	"/usr/bin/sh"
+ #define	_PATH_CONSOLE	"/dev/console"
+-#define	_PATH_CSHELL	"/bin/csh"
+-#define	_PATH_DEVDB	"/var/run/dev.db"
++#define	_PATH_CSHELL	"/usr/bin/csh"
++#define	_PATH_DEVDB	"/run/dev.db"
+ #define	_PATH_DEVNULL	"/dev/null"
+ #define	_PATH_DRUM	"/dev/drum"
+ #define	_PATH_GSHADOW	"/etc/gshadow"
+@@ -61,7 +61,7 @@
+ #define	_PATH_SHELLS	"/etc/shells"
+ #define	_PATH_TTY	"/dev/tty"
+ #define	_PATH_UNIX	"/boot/vmlinux"
+-#define _PATH_UTMP	"/var/run/utmp"
++#define _PATH_UTMP	"/run/utmp"
+ #define	_PATH_VI	"/usr/bin/vi"
+ #define _PATH_WTMP	"/var/log/wtmp"
+ 
+@@ -69,7 +69,7 @@
+ #define	_PATH_DEV	"/dev/"
+ #define	_PATH_TMP	"/tmp/"
+ #define	_PATH_VARDB	"/var/db/"
+-#define	_PATH_VARRUN	"/var/run/"
++#define	_PATH_VARRUN	"/run/"
+ #define	_PATH_VARTMP	"/var/tmp/"
+ 
+ #endif /* !_PATHS_H_ */
