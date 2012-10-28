@@ -6,6 +6,7 @@ DESTDIR=
 
 [ -f /etc/sysconfig/i18n ] && . /etc/sysconfig/i18n
 [ -f /etc/sysconfig/localedb ] && . /etc/sysconfig/localedb
+[ -f /etc/locale.conf ] && . /etc/locale.conf
 
 LOCDIR=@localedir@
 ARCHIVE=${LOCDIR}/locale-archive

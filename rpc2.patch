@@ -1,0 +1,50 @@
+diff --git a/Makerules b/Makerules
+index b069763..a897d4e 100644
+--- a/Makerules
++++ b/Makerules
+@@ -369,6 +369,11 @@ compile-command.s = $(COMPILE.s) $< $(OUTPUT_OPTION) $(compile-mkdep-flags)
+ compile-command.c = $(compile.c) $(OUTPUT_OPTION) $(compile-mkdep-flags)
+ compile-command.cc = $(compile.cc) $(OUTPUT_OPTION) $(compile-mkdep-flags)
+ 
++# Like compile-mkdep-flags, but for use with $(BUILD_CC).  We don't want to
++# track system includes here, they may spuriously trigger an install rule,
++# and would cause the check-local-headers test to fail.
++native-compile-mkdep-flags = -MMD -MP -MF $@.dt -MT $@
++
+ # GCC can grok options after the file name, and it looks nicer that way.
+ compile.c = $(CC) $< -c $(CFLAGS) $(CPPFLAGS)
+ compile.cc = $(CXX) $< -c $(CXXFLAGS) $(CPPFLAGS)
+diff --git a/sunrpc/Makefile b/sunrpc/Makefile
+index 3b79dcd..48a458a 100644
+--- a/sunrpc/Makefile
++++ b/sunrpc/Makefile
+@@ -91,7 +91,7 @@ install-bin := rpcgen
+ rpcgen-objs = rpc_main.o rpc_hout.o rpc_cout.o rpc_parse.o \
+ 	      rpc_scan.o rpc_util.o rpc_svcout.o rpc_clntout.o \
+ 	      rpc_tblout.o rpc_sample.o
+-extra-objs = $(rpcgen-objs)
++extra-objs = $(rpcgen-objs) $(addprefix cross-,$(rpcgen-objs))
+ others += rpcgen
+ 
+ all: # Make this the default target; it will be defined in Rules.
+@@ -157,15 +157,13 @@ $(objpfx)tst-xdrmem2: $(common-objpfx)linkobj/libc.so
+ $(objpfx)rpcgen: $(addprefix $(objpfx),$(rpcgen-objs))
+ 
+ cross-rpcgen-objs := $(addprefix $(objpfx)cross-,$(rpcgen-objs))
+-extra-objs += $(cross-rpcgen-objs)
+ 
+ # When generic makefile support for build system programs is
+ # available, it should replace this code.  See
+ # <http://sourceware.org/bugzilla/show_bug.cgi?id=14087>.
+-$(cross-rpcgen-objs): $(objpfx)cross-%.o: %.c
+-	$(make-target-directory)
++$(cross-rpcgen-objs): $(objpfx)cross-%.o: %.c $(before-compile)
+ 	$(BUILD_CC) $($(basename $(<F))-CFLAGS) $(ALL_BUILD_CFLAGS) $< \
+-		$(OUTPUT_OPTION) $(compile-mkdep-flags) -c
++		$(OUTPUT_OPTION) $(native-compile-mkdep-flags) -c
+ 
+ $(objpfx)cross-rpcgen: $(cross-rpcgen-objs)
+ 	$(BUILD_CC) $^ $(BUILD_LDFLAGS) -o $@
+-- 
+1.7.3.4
+

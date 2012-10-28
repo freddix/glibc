@@ -1,7 +1,7 @@
 Summary:	GNU libc
 Name:		glibc
 Version:	2.16.0
-Release:	11
+Release:	14
 Epoch:		6
 License:	LGPL v2.1+
 Group:		Libraries
@@ -17,12 +17,14 @@ Patch1:		%{name}-pthread_wait_cond.patch
 Patch2:		%{name}-no-libgcc.patch
 # freddix only
 Patch3:		%{name}-paths.patch
+Patch4:		rpc1.patch
+Patch5:		rpc2.patch
 URL:		http://www.gnu.org/software/libc/
 BuildRequires:	autoconf
 BuildRequires:	binutils
 BuildRequires:	gawk
 BuildRequires:	gcc
-BuildRequires:	gettext-devel
+BuildRequires:	gettext
 BuildRequires:	glibc-static
 BuildRequires:	linux-libc-headers
 BuildRequires:	perl-base
@@ -280,8 +282,22 @@ library which is a smaller subset of the standard libc shared library.
 %patch2 -p1
 %patch3 -p1
 
+%if 0
+# cross compile fix
+%patch5 -p1 -R
+%patch4 -p1 -R
+%endif
+
 # fix build
 sed -i 's#<rpc/types.h>#"rpc/types.h"#' sunrpc/rpc_clntout.c
+
+%ifarch %{ix86}
+# no need to search for libs in /usr/{lib32x,lib64} on x86
+sed -i "s#add_system_dir#do_not_add_system_dir#" sysdeps/unix/sysv/linux/x86_64/dl-cache.h
+%endif
+
+# --rootsbindir not accepted by configure
+sed -i "s#libc_cv_rootsbindir.*#libc_cv_rootsbindir=%{_sbindir}#" sysdeps/gnu/configure.in
 
 # cleanup backups after patching
 find '(' -name '*~' -o -name '*.orig' ')' -print0 | xargs -0 -r -l512 rm -f
@@ -294,6 +310,12 @@ install -d builddir
 cd builddir
 
 ../%configure \
+%if 0
+	libc_cv_c_cleanup=yes		\
+	libc_cv_ctors_header=yes	\
+	libc_cv_forced_unwind=yes	\
+%endif
+	libc_cv_slibdir=%{_libdir}	\
 	--disable-profile		\
 	--enable-add-ons=nptl,libidn	\
 	--enable-bind-now		\
@@ -302,8 +324,7 @@ cd builddir
 	--with-headers=%{_includedir}	\
 	--without-cvs			\
 	--without-selinux
-%{__make} \
-	sLIBdir=%{_libdir}
+%{__make}
 cd ..
 
 %{__cc} %{SOURCE2} %{rpmcflags} -Os -static -o glibc-postinst
@@ -333,13 +354,6 @@ LD_PRELOAD=$(pwd)/elf/ld.so:$(pwd)/libc.so.6 ./iconv/iconvconfig --nostdlib --pr
 cd ..
 
 install glibc-postinst $RPM_BUILD_ROOT%{_sbindir}
-
-# linking nss modules directly is not supported
-rm -f $RPM_BUILD_ROOT%{_libdir}/libnss_*.so
-
-# usrmove
-mv -f $RPM_BUILD_ROOT/%{_lib}/* $RPM_BUILD_ROOT%{_libdir}
-mv -f $RPM_BUILD_ROOT/sbin/* $RPM_BUILD_ROOT%{_sbindir}
 
 # make symlinks across top-level directories absolute
 for l in BrokenLocale anl cidn crypt dl m nsl resolv rt thread_db util; do
@@ -486,7 +500,7 @@ for i in aa aa@saaho af am an ang ar ar_TN as ast az be@latin be@tarask \
 done
 
 # LC_TIME category, used for localized date formats (at least by coreutils)
-for i in af be bg ca cs da de el en eo es et eu fi fr ga gl hu id it ja kk ko lg lt \
+for i in af be bg ca cs da de el en eo es et eu fi fr ga gl hu hr id it ja kk ko lg lt \
 	ms nb nl pl pt pt_BR ro ru rw sk sl sv tr uk vi zh_CN zh_TW; do
 	if [ ! -d $RPM_BUILD_ROOT%{_datadir}/locale/$i ]; then
 		echo "%lang($lang) %{_datadir}/locale/$i" >> glibc.lang
@@ -500,7 +514,7 @@ chmod +x $RPM_BUILD_ROOT%{_bindir}/localedb-gen
 install localedata/SUPPORTED $RPM_BUILD_ROOT%{_datadir}/i18n
 
 # shutup check-files
-rm -f $RPM_BUILD_ROOT%{_infodir}/dir
+%{__rm} -f $RPM_BUILD_ROOT%{_infodir}/dir
 # we don't support kernel without ptys support
 %{__rm} $RPM_BUILD_ROOT%{_libdir}/pt_chown
 
@@ -525,6 +539,7 @@ rm -rf $RPM_BUILD_ROOT
 SUPPORTED_LOCALES=
 [ -f /etc/sysconfig/i18n ] && . /etc/sysconfig/i18n
 [ -f /etc/sysconfig/localedb ] && . /etc/sysconfig/localedb
+[ -f /etc/locale.conf ] && . /etc/locale.conf
 if [ "$SUPPORTED_LOCALES" ]; then
 	localedb-gen || :
 fi
@@ -710,7 +725,7 @@ fi
 %attr(755,root,root) %{_sbindir}/iconvconfig
 %dir %{_libdir}/gconv
 %{_libdir}/gconv/gconv-modules
-#%verify(not md5 mtime size) %{_libdir}/gconv/gconv-modules.cache
+%verify(not md5 mtime size) %{_libdir}/gconv/gconv-modules.cache
 %attr(755,root,root) %{_libdir}/gconv/*.so
 
 %files static
