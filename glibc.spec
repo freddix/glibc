@@ -1,7 +1,7 @@
 Summary:	GNU libc
 Name:		glibc
 Version:	2.16.0
-Release:	14
+Release:	15
 Epoch:		6
 License:	LGPL v2.1+
 Group:		Libraries
@@ -11,14 +11,29 @@ Source1:	%{name}-localedb-gen
 Source2:	%{name}-LD-path.c
 #
 Patch0:		%{name}-posix-sh.patch
-# https://bugzilla.redhat.com/show_bug.cgi?id=552960
-Patch1:		%{name}-pthread_wait_cond.patch
-# http://sourceware.org/ml/libc-alpha/2012-05/msg01865.html
-Patch2:		%{name}-no-libgcc.patch
 # freddix only
-Patch3:		%{name}-paths.patch
-Patch4:		rpc1.patch
-Patch5:		rpc2.patch
+Patch1:		%{name}-paths.patch
+# required for cross-compiling
+Patch2:		rpc1.patch
+Patch3:		rpc2.patch
+# upstream fixes
+# http://sourceware.org/git/?p=glibc.git;a=commit;h=a5cfcf08
+Patch10:	%{name}-detect-fma.patch
+# http://sourceware.org/bugzilla/show_bug.cgi?id=13013
+Patch11:	%{name}-fix-res_query-assert.patch
+# http://sourceware.org/git/?p=glibc.git;a=commit;h=6c62f108
+Patch12:	%{name}-glob-use-size_t.patch
+# http://sourceware.org/git/?p=glibc.git;a=commit;h=bf9b740a
+Patch13:	%{name}-rpcgen-cpp-path.patch
+# http://sourceware.org/git/?p=glibc.git;a=commit;h=6db8f737
+Patch14:	%{name}-strncasecmp-segfault.patch
+# http://sourceware.org/git/?p=glibc.git;a=commit;h=da1f4319
+Patch15:	%{name}-strtod-overflow.patch
+# http://sourceware.org/git/?p=glibc.git;a=patch;h=c30e8edf
+Patch16:	%{name}-unlock-mutex.patch
+# http://sourceware.org/ml/libc-alpha/2012-05/msg01865.html
+Patch17:		%{name}-no-libgcc.patch
+#
 URL:		http://www.gnu.org/software/libc/
 BuildRequires:	autoconf
 BuildRequires:	binutils
@@ -279,14 +294,21 @@ library which is a smaller subset of the standard libc shared library.
 %setup -q
 %patch0 -p1
 %patch1 -p1
-%patch2 -p1
-%patch3 -p1
 
 %if 0
 # cross compile fix
-%patch5 -p1 -R
+%patch3 -p1 -R
 %patch4 -p1 -R
 %endif
+
+%patch10 -p1
+%patch11 -p1
+%patch12 -p1
+%patch13 -p1
+%patch14 -p1
+%patch15 -p1
+%patch16 -p1
+%patch17 -p1
 
 # fix build
 sed -i 's#<rpc/types.h>#"rpc/types.h"#' sunrpc/rpc_clntout.c
