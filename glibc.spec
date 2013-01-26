@@ -1,39 +1,20 @@
 Summary:	GNU libc
 Name:		glibc
-Version:	2.16.0
-Release:	15
+Version:	2.17
+Release:	2
 Epoch:		6
 License:	LGPL v2.1+
 Group:		Libraries
 Source0:	http://ftp.gnu.org/pub/gnu/glibc/%{name}-%{version}.tar.xz
-# Source0-md5:	80b181b02ab249524ec92822c0174cf7
+# Source0-md5:	87bf675c8ee523ebda4803e8e1cec638
 Source1:	%{name}-localedb-gen
 Source2:	%{name}-LD-path.c
 #
 Patch0:		%{name}-posix-sh.patch
-# freddix only
 Patch1:		%{name}-paths.patch
-# required for cross-compiling
-Patch2:		rpc1.patch
-Patch3:		rpc2.patch
-# upstream fixes
-# http://sourceware.org/git/?p=glibc.git;a=commit;h=a5cfcf08
-Patch10:	%{name}-detect-fma.patch
-# http://sourceware.org/bugzilla/show_bug.cgi?id=13013
-Patch11:	%{name}-fix-res_query-assert.patch
-# http://sourceware.org/git/?p=glibc.git;a=commit;h=6c62f108
-Patch12:	%{name}-glob-use-size_t.patch
-# http://sourceware.org/git/?p=glibc.git;a=commit;h=bf9b740a
-Patch13:	%{name}-rpcgen-cpp-path.patch
-# http://sourceware.org/git/?p=glibc.git;a=commit;h=6db8f737
-Patch14:	%{name}-strncasecmp-segfault.patch
-# http://sourceware.org/git/?p=glibc.git;a=commit;h=da1f4319
-Patch15:	%{name}-strtod-overflow.patch
-# http://sourceware.org/git/?p=glibc.git;a=patch;h=c30e8edf
-Patch16:	%{name}-unlock-mutex.patch
-# http://sourceware.org/ml/libc-alpha/2012-05/msg01865.html
-Patch17:		%{name}-no-libgcc.patch
+Patch2:		%{name}-autoconf.patch
 #
+Patch10:	%{name}-sync-with-linux37.patch
 URL:		http://www.gnu.org/software/libc/
 BuildRequires:	autoconf
 BuildRequires:	binutils
@@ -294,32 +275,17 @@ library which is a smaller subset of the standard libc shared library.
 %setup -q
 %patch0 -p1
 %patch1 -p1
-
-%if 0
-# cross compile fix
-%patch3 -p1 -R
-%patch4 -p1 -R
-%endif
-
+%patch2 -p1
 %patch10 -p1
-%patch11 -p1
-%patch12 -p1
-%patch13 -p1
-%patch14 -p1
-%patch15 -p1
-%patch16 -p1
-%patch17 -p1
-
-# fix build
-sed -i 's#<rpc/types.h>#"rpc/types.h"#' sunrpc/rpc_clntout.c
 
 %ifarch %{ix86}
 # no need to search for libs in /usr/{lib32x,lib64} on x86
-sed -i "s#add_system_dir#do_not_add_system_dir#" sysdeps/unix/sysv/linux/x86_64/dl-cache.h
+%{__sed} -i "s#add_system_dir#do_not_add_system_dir#" sysdeps/unix/sysv/linux/x86_64/dl-cache.h
 %endif
 
 # --rootsbindir not accepted by configure
-sed -i "s#libc_cv_rootsbindir.*#libc_cv_rootsbindir=%{_sbindir}#" sysdeps/gnu/configure.in
+%{__rm} sysdeps/gnu/configure
+%{__sed} -i "s#libc_cv_rootsbindir.*#libc_cv_rootsbindir=%{_sbindir}#" sysdeps/gnu/configure.in
 
 # cleanup backups after patching
 find '(' -name '*~' -o -name '*.orig' ')' -print0 | xargs -0 -r -l512 rm -f
@@ -577,7 +543,7 @@ fi
 %doc README NEWS BUGS
 %attr(755,root,root) %{_sbindir}/glibc-postinst
 %dir %{_libexecdir}
-%attr(755,root,root) %{_libdir}/ld-2.16.so
+%attr(755,root,root) %{_libdir}/ld-2.17.so
 %ifarch %{x8664}
 %attr(755,root,root) %{_libdir}/ld-linux-x86-64.so.2
 %endif
@@ -637,12 +603,11 @@ fi
 %files misc -f %{name}.lang
 %defattr(644,root,root,755)
 %attr(755,root,root) %{_bindir}/catchsegv
-%attr(755,root,root) %{_bindir}/ldd
-%attr(755,root,root) %{_bindir}/pldd
-%attr(755,root,root) %{_bindir}/catchsegv
 %attr(755,root,root) %{_bindir}/getconf
 %attr(755,root,root) %{_bindir}/getent
 %attr(755,root,root) %{_bindir}/iconv
+%attr(755,root,root) %{_bindir}/ldd
+%attr(755,root,root) %{_bindir}/pldd
 %ifarch %{ix86}
 %attr(755,root,root) %{_bindir}/lddlibc4
 %endif
