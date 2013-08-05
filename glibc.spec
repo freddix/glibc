@@ -1,7 +1,7 @@
 Summary:	GNU libc
 Name:		glibc
 Version:	2.17
-Release:	3
+Release:	4
 Epoch:		6
 License:	LGPL v2.1+
 Group:		Libraries
@@ -15,6 +15,8 @@ Patch1:		%{name}-paths.patch
 Patch2:		%{name}-autoconf.patch
 #
 Patch10:	%{name}-sync-with-linux37.patch
+Patch11:	%{name}-2.17-getaddrinfo-stack-overflow.patch
+Patch12:	%{name}-2.17-regexp-matcher-overrun.patch
 URL:		http://www.gnu.org/software/libc/
 BuildRequires:	autoconf
 BuildRequires:	binutils
@@ -277,6 +279,10 @@ library which is a smaller subset of the standard libc shared library.
 %patch1 -p1
 %patch2 -p1
 %patch10 -p1
+# CVE-2013-1914
+%patch11 -p1
+# CVE-2013-0242
+%patch12 -p1
 
 %ifarch %{ix86}
 # no need to search for libs in /usr/{lib32x,lib64} on x86
@@ -356,8 +362,8 @@ rm -rf $RPM_BUILD_ROOT%{_datadir}/zoneinfo
 
 ln -sf libbsd-compat.a $RPM_BUILD_ROOT%{_libdir}/libbsd.a
 
-sed -e 's#\([ \t]\)db\([ \t]\)#\1#g' nss/nsswitch.conf > $RPM_BUILD_ROOT%{_sysconfdir}/nsswitch.conf
-install posix/gai.conf		$RPM_BUILD_ROOT%{_sysconfdir}
+%{__sed} -e 's#\([ \t]\)db\([ \t]\)#\1#g' nss/nsswitch.conf > $RPM_BUILD_ROOT%{_sysconfdir}/nsswitch.conf
+install posix/gai.conf $RPM_BUILD_ROOT%{_sysconfdir}
 cp -a nis/nss $RPM_BUILD_ROOT/etc/default/nss
 
 : > $RPM_BUILD_ROOT%{_sysconfdir}/ld.so.cache
@@ -381,7 +387,7 @@ cp -af crypt/README.ufc-crypt ChangeLog* documentation
 
 # Collect locale files and mark them with %%lang()
 echo '%defattr(644,root,root,755)' > glibc.lang
-for i in $RPM_BUILD_ROOT%{_datadir}/locale/*; do
+for i in $RPM_BUILD_ROOT%{_localedir}/*; do
 	if [ -d $i ]; then
 		lang=$(basename $i)
 		dir="${i#$RPM_BUILD_ROOT}"
@@ -400,9 +406,11 @@ done
 #   sr@ije (use LANGUAGE=sr_ME@ije/sr_RS@ije) (gnome)
 #
 # To be added when they become supported by glibc:
+#   ach (vlc)
 #   az_IR (gtk+2)
 #   bal (newt,pessulus)
 #   bem (alacarte)
+#   cgg (vlc)
 #   co  (vlc)
 #   fil (stellarium)
 #   frp (xfce, lxlauncher)
@@ -412,6 +420,7 @@ done
 #   ilo (kudzu)
 #   io  (gtk+2, gnome, alacarte)
 #   jv  (gmpc, avant-window-navigator, kdesudo)
+#   kmr (vlc)
 #   kok (iso-codes)
 #   lb  (geany,miro,deluge)
 #   man (ccsm; incorrectly named md)
@@ -425,11 +434,7 @@ done
 #
 # To be removed (after fixing packages still using it):
 #   sr@Latn (use sr@latin instead)
-#
-# To be clarified:
-#   sr@ije or sr@ijekavian? (currently sr@ije is supported)
-#   sr@ijelatin or sr@ijekavianlatin? (currently not supported)
-#   sr@ijekavian and sr@ijekavianlatin exist in: akonadi-googledata, amarok, k3b, konversation, ktorrent, wesnoth
+#   sr@ije (use sr@ijekavian instead)
 #
 # Short forms (omitted country code, used instead of long form) for ambiguous or unclear cases:
 # aa=aa_ER
@@ -443,6 +448,8 @@ done
 # eo=common
 # es=es_ES
 # eu=eu_ES
+# fa=fa_IR
+# ff=ff_SN
 # fr=fr_FR
 # fy=fy_NL
 # gez=gez_ET (?)
@@ -451,11 +458,15 @@ done
 # nds=nds_DE
 # nl=nl_NL
 # om=om_ET
+# or=or_IN
 # pa=pa_IN
 # pt=pt_PT
 # ru=ru_RU
 # so=so_SO
 # sr=sr_RS [cyrillic]
+# sr@latin=sr_RS@latin
+# sr@ijekavian=sr_BA@ijekavian
+# sr@ijekavianlatin=sr_BA@ijekavianlatin
 # sv=sv_SE
 # sw=sw_TZ (or common for KE, TZ, UG?)
 # ta=ta_IN
@@ -473,27 +484,28 @@ for i in aa aa@saaho af am an ang ar ar_TN as ast az be@latin be@tarask \
 	bg bn bn_IN bo br bs byn ca@valencia ckb crh csb cy de_AT de_CH dv dz en \
 	en@boldquot en@quot en@shaw en_AU en_CA en_NZ en_US eo es_AR es_CL es_CO es_CR \
 	es_DO es_EC es_GT es_HN es_MX es_NI es_PA es_PE es_PR es_SV es_UY \
-	es_VE et eu fa fil fo fr_BE fr_CA fr_CH fur fy ga gd gez gu gv ha he \
+	es_VE et eu fa ff fil fo fr_BE fr_CA fr_CH fur fy ga gd gez gu gv ha he \
 	hi hne hsb hy ia id ig ik is it_CH iu ka kg kk kl km kn ks ku kw ky la \
 	lg li lo lt lv mai mg mi mk ml mn mr ms mt my nds ne nl_BE nn nr nso \
 	oc om or pa pap ps pt ps rm ro sa sc se si sid sl so sq sr sr@Latn tl \
-	sr@ije sr@latin ss st sw ta te tg th ti tig tk tl tlh tn ts tt ug uk \
-	ur uz uz@cyrillic ve vi wa wal wo xh yi yo zh_HK zu; do
-	if [ ! -d $RPM_BUILD_ROOT%{_datadir}/locale/$i/LC_MESSAGES ]; then
-		install -d $RPM_BUILD_ROOT%{_datadir}/locale/$i/LC_MESSAGES
+	sr@ije sr@ijekavian sr@ijekavianlatin sr@latin ss st sw ta te tg th ti \
+	tig tk tl tlh tn ts tt ug uk ur uz uz@cyrillic ve vi wa wal wo xh yi yo \
+	zh_HK zu; do
+	if [ ! -d $RPM_BUILD_ROOT%{_localedir}/$i/LC_MESSAGES ]; then
+		install -d $RPM_BUILD_ROOT%{_localedir}/$i/LC_MESSAGES
 		# use lang() tags with ll_CC@variant (stripping charset and @quot|@boldquot)
 		lang=$(echo $i | sed -e 's/@quot\>\|@boldquot\>//')
-		echo "%lang($lang) %{_datadir}/locale/$i" >> glibc.lang
+		echo "%lang($lang) %{_localedir}/$i" >> glibc.lang
 	fi
 done
 
 # LC_TIME category, used for localized date formats (at least by coreutils)
-for i in af be bg ca cs da de el en eo es et eu fi fr ga gl hu hr ia id it ja kk ko lg lt \
+for i in af be bg ca cs da de el en eo es et eu fi fr ga gl hr hu ia id it ja kk ko lg lt \
 	ms nb nl pl pt pt_BR ro ru rw sk sl sv tr uk vi zh_CN zh_TW; do
-	if [ ! -d $RPM_BUILD_ROOT%{_datadir}/locale/$i ]; then
-		echo "%lang($lang) %{_datadir}/locale/$i" >> glibc.lang
+	if [ ! -d $RPM_BUILD_ROOT%{_localedir}/$i ]; then
+		echo "%lang($lang) %{_localedir}/$i" >> glibc.lang
 	fi
-	install -d $RPM_BUILD_ROOT%{_datadir}/locale/$i/LC_TIME
+	install -d $RPM_BUILD_ROOT%{_localedir}/$i/LC_TIME
 done
 
 # localedb-gen infrastructure
