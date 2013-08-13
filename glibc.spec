@@ -1,22 +1,17 @@
 Summary:	GNU libc
 Name:		glibc
-Version:	2.17
-Release:	4
+Version:	2.18
+Release:	1
 Epoch:		6
 License:	LGPL v2.1+
 Group:		Libraries
 Source0:	http://ftp.gnu.org/pub/gnu/glibc/%{name}-%{version}.tar.xz
-# Source0-md5:	87bf675c8ee523ebda4803e8e1cec638
+# Source0-md5:	88fbbceafee809e82efd52efa1e3c58f
 Source1:	%{name}-localedb-gen
 Source2:	%{name}-LD-path.c
 #
-Patch0:		%{name}-posix-sh.patch
-Patch1:		%{name}-paths.patch
-Patch2:		%{name}-autoconf.patch
-#
-Patch10:	%{name}-sync-with-linux37.patch
-Patch11:	%{name}-2.17-getaddrinfo-stack-overflow.patch
-Patch12:	%{name}-2.17-regexp-matcher-overrun.patch
+Patch0:		%{name}-paths.patch
+Patch1:		%{name}-autoconf.patch
 URL:		http://www.gnu.org/software/libc/
 BuildRequires:	autoconf
 BuildRequires:	binutils
@@ -277,12 +272,6 @@ library which is a smaller subset of the standard libc shared library.
 %setup -q
 %patch0 -p1
 %patch1 -p1
-%patch2 -p1
-%patch10 -p1
-# CVE-2013-1914
-%patch11 -p1
-# CVE-2013-0242
-%patch12 -p1
 
 %ifarch %{ix86}
 # no need to search for libs in /usr/{lib32x,lib64} on x86
@@ -314,6 +303,7 @@ cd builddir
 	--enable-add-ons=nptl,libidn	\
 	--enable-bind-now		\
 	--enable-kernel="2.6.34"	\
+	--enable-lock-elision		\
 	--enable-obsolete-rpc		\
 	--with-headers=%{_includedir}	\
 	--without-cvs			\
@@ -343,8 +333,13 @@ install -p elf/soinit.os $RPM_BUILD_ROOT%{_libdir}/soinit.o
 install -p elf/sofini.os $RPM_BUILD_ROOT%{_libdir}/sofini.o
 
 # Include %{_libdir}/gconv/gconv-modules.cache
-LD_PRELOAD=$(pwd)/elf/ld.so:$(pwd)/libc.so.6 ./iconv/iconvconfig --nostdlib --prefix=$RPM_BUILD_ROOT \
-	%{_libdir}/gconv -o $RPM_BUILD_ROOT%{_libdir}/gconv/gconv-modules.cache
+%ifarch %{x8664}
+GCONV_PATH=$(pwd)/iconvdata LC_ALL=C $(pwd)/elf/ld-linux-x86-64.so.2 \
+%else
+GCONV_PATH=$(pwd)/iconvdata LC_ALL=C $(pwd)/elf/ld-linux.so.2 \
+%endif
+	--library-path $(pwd):$(pwd)/math:$(pwd)/elf:$(pwd)/dlfcn:$(pwd)/nss:$(pwd)/nis:$(pwd)/rt:$(pwd)/resolv:$(pwd)/crypt:$(pwd)/nptl \
+	$(pwd)/iconv/iconvconfig --nostdlib --prefix=$RPM_BUILD_ROOT %{_libdir}/gconv -o $RPM_BUILD_ROOT%{_libdir}/gconv/gconv-modules.cache
 cd ..
 
 install glibc-postinst $RPM_BUILD_ROOT%{_sbindir}
@@ -355,10 +350,6 @@ for l in BrokenLocale anl cidn crypt dl m nsl resolv rt thread_db util; do
     rm -f $RPM_BUILD_ROOT%{_libdir}/lib${l}.so
     ln -sf $(basename $RPM_BUILD_ROOT%{_libdir}/lib${l}.so.*) $RPM_BUILD_ROOT%{_libdir}/lib${l}.so
 done
-
-# moved to tzdata package
-rm -f $RPM_BUILD_ROOT%{_sysconfdir}/localtime
-rm -rf $RPM_BUILD_ROOT%{_datadir}/zoneinfo
 
 ln -sf libbsd-compat.a $RPM_BUILD_ROOT%{_libdir}/libbsd.a
 
@@ -373,11 +364,9 @@ echo 'include ld.so.conf.d/*.conf' > $RPM_BUILD_ROOT%{_sysconfdir}/ld.so.conf
 
 # doesn't fit with out tzdata concept and configure.in is stupid assuming bash
 # is first posix compatible shell making this script depend on bash.
-rm -f $RPM_BUILD_ROOT%{_bindir}/tzselect
-rm -f $RPM_BUILD_ROOT%{_mandir}/man8/tzselect.8*
-rm -f $RPM_BUILD_ROOT%{_mandir}/*/man8/tzselect.8*
+%{__rm} $RPM_BUILD_ROOT%{_bindir}/tzselect
 
-rm -rf documentation
+rm -fr documentation
 install -d documentation
 
 for f in ANNOUNCE ChangeLog DESIGN-{barrier,condvar,rwlock,sem}.txt TODO{,-kernel,-testing}; do
@@ -509,14 +498,12 @@ for i in af be bg ca cs da de el en eo es et eu fi fr ga gl hr hu ia id it ja kk
 done
 
 # localedb-gen infrastructure
-sed -e 's,@localedir@,%{_libdir}/locale,' %{SOURCE1} > $RPM_BUILD_ROOT%{_bindir}/localedb-gen
+%{__sed} -e 's,@localedir@,%{_libdir}/locale,' %{SOURCE1} > $RPM_BUILD_ROOT%{_bindir}/localedb-gen
 chmod +x $RPM_BUILD_ROOT%{_bindir}/localedb-gen
 install localedata/SUPPORTED $RPM_BUILD_ROOT%{_datadir}/i18n
 
 # shutup check-files
 %{__rm} -f $RPM_BUILD_ROOT%{_infodir}/dir
-# we don't support kernel without ptys support
-%{__rm} $RPM_BUILD_ROOT%{_libdir}/pt_chown
 
 %if 0
 %check
@@ -555,7 +542,7 @@ fi
 %doc README NEWS BUGS
 %attr(755,root,root) %{_sbindir}/glibc-postinst
 %dir %{_libexecdir}
-%attr(755,root,root) %{_libdir}/ld-2.17.so
+%attr(755,root,root) %{_libdir}/ld-2.1?.so
 %ifarch %{x8664}
 %attr(755,root,root) %{_libdir}/ld-linux-x86-64.so.2
 %endif
