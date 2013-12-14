@@ -1,7 +1,7 @@
 Summary:	GNU libc
 Name:		glibc
 Version:	2.18
-Release:	1
+Release:	2
 Epoch:		6
 License:	LGPL v2.1+
 Group:		Libraries
@@ -12,6 +12,15 @@ Source2:	%{name}-LD-path.c
 #
 Patch0:		%{name}-paths.patch
 Patch1:		%{name}-autoconf.patch
+Patch10:	%{name}-2.18-getaddrinfo-CVE-2013-4458.patch
+Patch11:	%{name}-2.18-getaddrinfo-assertion.patch
+Patch12:	%{name}-2.18-make-4.patch
+Patch13:	%{name}-2.18-malloc-corrupt-CVE-2013-4332.patch
+Patch14:	%{name}-2.18-ptr-mangle-CVE-2013-4788.patch
+Patch15:	%{name}-2.18-readdir_r-CVE-2013-4237.patch
+Patch16:	%{name}-2.18-scanf-parse-0e-0.patch
+Patch17:	%{name}-2.18-strcoll-CVE-2012-4412+4424.patch
+Patch18:	%{name}-2.18-strstr-hackfix.patch
 URL:		http://www.gnu.org/software/libc/
 BuildRequires:	autoconf
 BuildRequires:	binutils
@@ -272,6 +281,15 @@ library which is a smaller subset of the standard libc shared library.
 %setup -q
 %patch0 -p1
 %patch1 -p1
+%patch10 -p1
+%patch11 -p1
+%patch12 -p1
+%patch13 -p1
+%patch14 -p1
+%patch15 -p1
+%patch16 -p1
+%patch17 -p1
+%patch18 -p1
 
 %ifarch %{ix86}
 # no need to search for libs in /usr/{lib32x,lib64} on x86
