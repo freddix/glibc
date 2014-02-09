@@ -1,26 +1,17 @@
 Summary:	GNU libc
 Name:		glibc
-Version:	2.18
-Release:	2
+Version:	2.19
+Release:	1
 Epoch:		6
 License:	LGPL v2.1+
 Group:		Libraries
 Source0:	http://ftp.gnu.org/pub/gnu/glibc/%{name}-%{version}.tar.xz
-# Source0-md5:	88fbbceafee809e82efd52efa1e3c58f
+# Source0-md5:	e26b8cc666b162f999404b03970f14e4
 Source1:	%{name}-localedb-gen
 Source2:	%{name}-LD-path.c
 #
 Patch0:		%{name}-paths.patch
 Patch1:		%{name}-autoconf.patch
-Patch10:	%{name}-2.18-getaddrinfo-CVE-2013-4458.patch
-Patch11:	%{name}-2.18-getaddrinfo-assertion.patch
-Patch12:	%{name}-2.18-make-4.patch
-Patch13:	%{name}-2.18-malloc-corrupt-CVE-2013-4332.patch
-Patch14:	%{name}-2.18-ptr-mangle-CVE-2013-4788.patch
-Patch15:	%{name}-2.18-readdir_r-CVE-2013-4237.patch
-Patch16:	%{name}-2.18-scanf-parse-0e-0.patch
-Patch17:	%{name}-2.18-strcoll-CVE-2012-4412+4424.patch
-Patch18:	%{name}-2.18-strstr-hackfix.patch
 URL:		http://www.gnu.org/software/libc/
 BuildRequires:	autoconf
 BuildRequires:	binutils
@@ -281,24 +272,11 @@ library which is a smaller subset of the standard libc shared library.
 %setup -q
 %patch0 -p1
 %patch1 -p1
-%patch10 -p1
-%patch11 -p1
-%patch12 -p1
-%patch13 -p1
-%patch14 -p1
-%patch15 -p1
-%patch16 -p1
-%patch17 -p1
-%patch18 -p1
 
 %ifarch %{ix86}
 # no need to search for libs in /usr/{lib32x,lib64} on x86
 %{__sed} -i "s#add_system_dir#do_not_add_system_dir#" sysdeps/unix/sysv/linux/x86_64/dl-cache.h
 %endif
-
-# --rootsbindir not accepted by configure
-%{__rm} sysdeps/gnu/configure
-%{__sed} -i "s#libc_cv_rootsbindir.*#libc_cv_rootsbindir=%{_sbindir}#" sysdeps/gnu/configure.in
 
 # cleanup backups after patching
 find '(' -name '*~' -o -name '*.orig' ')' -print0 | xargs -0 -r -l512 rm -f
@@ -310,13 +288,16 @@ rm -rf builddir
 install -d builddir
 cd builddir
 
+echo "slibdir=%{_libdir}" >> configparms
+echo "sbindir=%{_sbindir}" >> configparms
+echo "rootsbindir=%{_sbindir}" >> configparms
+
 ../%configure \
 %if 0
 	libc_cv_c_cleanup=yes		\
 	libc_cv_ctors_header=yes	\
 	libc_cv_forced_unwind=yes	\
 %endif
-	libc_cv_slibdir=%{_libdir}	\
 	--disable-profile		\
 	--enable-add-ons=nptl,libidn	\
 	--enable-bind-now		\
@@ -369,8 +350,6 @@ for l in BrokenLocale anl cidn crypt dl m nsl resolv rt thread_db util; do
     ln -sf $(basename $RPM_BUILD_ROOT%{_libdir}/lib${l}.so.*) $RPM_BUILD_ROOT%{_libdir}/lib${l}.so
 done
 
-ln -sf libbsd-compat.a $RPM_BUILD_ROOT%{_libdir}/libbsd.a
-
 %{__sed} -e 's#\([ \t]\)db\([ \t]\)#\1#g' nss/nsswitch.conf > $RPM_BUILD_ROOT%{_sysconfdir}/nsswitch.conf
 install posix/gai.conf $RPM_BUILD_ROOT%{_sysconfdir}
 cp -a nis/nss $RPM_BUILD_ROOT/etc/default/nss
@@ -409,17 +388,13 @@ done
 #   en@shaw - English with Shavian alphabet (gnome)
 #   la - Latin
 #   tlh - Klingon (bzflag)
-# and variants:
-#   sr@ije (use LANGUAGE=sr_ME@ije/sr_RS@ije) (gnome)
 #
 # To be added when they become supported by glibc:
 #   ach (vlc)
-#   az_IR (gtk+2)
+#   ak (gtkspell3)
 #   bal (newt,pessulus)
-#   bem (alacarte)
 #   cgg (vlc)
 #   co  (vlc)
-#   fil (stellarium)
 #   frp (xfce, lxlauncher)
 #   gn  (gn_BR in gnome, maybe gn_PY)
 #   haw (iso-codes, stellarium)
@@ -428,16 +403,15 @@ done
 #   io  (gtk+2, gnome, alacarte)
 #   jv  (gmpc, avant-window-navigator, kdesudo)
 #   kmr (vlc)
-#   kok (iso-codes)
-#   lb  (geany,miro,deluge)
 #   man (ccsm; incorrectly named md)
-#   mhr (pidgin)
 #   mus (bluez-gnome)
 #   pms (deluge)
 #   sco (gnomad2, picard, stellarium)
+#   son (gtkspell3)
 #   swg (sim)
 #   syr (iso-codes)
 #   tet (vlc)
+#   vec (mate-applet-indicator)
 #
 # To be removed (after fixing packages still using it):
 #   sr@Latn (use sr@latin instead)
@@ -446,10 +420,12 @@ done
 # Short forms (omitted country code, used instead of long form) for ambiguous or unclear cases:
 # aa=aa_ER
 # ar=common? (AE, BH, DZ, EG, IQ, JO, KW, LB, LY, MA, OM, QA, SA, SD, SY, TN, YE)
+# az=az_AZ
 # bn=bn_BD
 # bo=bo_CN? (or common for CN, IN?)
 # ca=ca_ES
 # ckb=ckb_IQ
+# cv=cv_RU
 # de=de_DE
 # en=common? (en_AU, en_CA, en_GB, en_NZ, en_US are used for particular variants)
 # eo=common
@@ -469,6 +445,7 @@ done
 # pa=pa_IN
 # pt=pt_PT
 # ru=ru_RU
+# sd=sd_IN
 # so=so_SO
 # sr=sr_RS [cyrillic]
 # sr@latin=sr_RS@latin
@@ -487,16 +464,16 @@ done
 #   be ca cs da de el en_GB es fi fr gl hr hu it ja ko nb nl pl pt_BR ru rw sk
 #   sv tr zh_CN zh_TW
 #
-for i in aa aa@saaho af am an ang ar ar_TN as ast az be@latin be@tarask \
-	bg bn bn_IN bo br bs byn ca@valencia ckb crh csb cy de_AT de_CH dv dz en \
+for i in aa aa@saaho af am an ang ar ar_TN as ast az az_IR be@latin be@tarask bem \
+	bg bn bn_IN bo br bs byn ca@valencia ckb crh csb cv cy de_AT de_CH dv dz en \
 	en@boldquot en@quot en@shaw en_AU en_CA en_NZ en_US eo es_AR es_CL es_CO es_CR \
 	es_DO es_EC es_GT es_HN es_MX es_NI es_PA es_PE es_PR es_SV es_UY \
 	es_VE et eu fa ff fil fo fr_BE fr_CA fr_CH fur fy ga gd gez gu gv ha he \
-	hi hne hsb hy ia id ig ik is it_CH iu ka kg kk kl km kn ks ku kw ky la \
-	lg li lo lt lv mai mg mi mk ml mn mr ms mt my nds ne nl_BE nn nr nso \
-	oc om or pa pap ps pt ps rm ro sa sc se si sid sl so sq sr sr@Latn tl \
+	hi hne hsb hy ia id ig ik is it_CH iu ka kg kk kl km kn kok ks ku kw ky la lb \
+	lg li lo lt lv mai mg mhr mi mk ml mn mr ms mt my nds ne nl_BE nn nr nso \
+	oc om or pa pap ps pt ps rm ro sa sc sd se si sid sl so sq sr sr@Latn tl \
 	sr@ije sr@ijekavian sr@ijekavianlatin sr@latin ss st sw ta te tg th ti \
-	tig tk tl tlh tn ts tt ug uk ur uz uz@cyrillic ve vi wa wal wo xh yi yo \
+	tig tk tl tlh tn ts tt tt@iqtelif ug uk ur uz uz@cyrillic ve vi wa wal wo xh yi yo \
 	zh_HK zu; do
 	if [ ! -d $RPM_BUILD_ROOT%{_localedir}/$i/LC_MESSAGES ]; then
 		install -d $RPM_BUILD_ROOT%{_localedir}/$i/LC_MESSAGES
@@ -666,8 +643,6 @@ fi
 %{_libdir}/libc.so
 %{_libdir}/libpthread.so
 # static-only libs
-%{_libdir}/libbsd-compat.a
-%{_libdir}/libbsd.a
 %{_libdir}/libc_nonshared.a
 %{_libdir}/libg.a
 %{_libdir}/libieee.a
