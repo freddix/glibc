@@ -1,7 +1,7 @@
 Summary:	GNU libc
 Name:		glibc
 Version:	2.19
-Release:	2
+Release:	3
 Epoch:		6
 License:	LGPL v2.1+
 Group:		Libraries
