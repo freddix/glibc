@@ -1,18 +1,22 @@
+# based on PLD Linux spec git://git.pld-linux.org/packages/glibc.git
+# includes locale-gen script from Arch Linux
 Summary:	GNU libc
 Name:		glibc
-Version:	2.19
-Release:	3
+Version:	2.20
+Release:	1
 Epoch:		6
 License:	LGPL v2.1+
 Group:		Libraries
 Source0:	http://ftp.gnu.org/pub/gnu/glibc/%{name}-%{version}.tar.xz
-# Source0-md5:	e26b8cc666b162f999404b03970f14e4
-Source1:	%{name}-localedb-gen
+# Source0-md5:	948a6e06419a01bd51e97206861595b0
+Source1:	localedb-gen
 Source2:	%{name}-LD-path.c
+Source3:	nsswitch.conf
+Source4:	localedb-gen
+Source5:	localedb-gen.txt
 #
 Patch0:		%{name}-paths.patch
 Patch1:		%{name}-autoconf.patch
-Patch2:		%{name}-fix-sign-in-bsloww1-input.patch
 URL:		http://www.gnu.org/software/libc/
 BuildRequires:	autoconf
 BuildRequires:	binutils
@@ -27,10 +31,10 @@ BuildRequires:	rpm-perlprov
 BuildRequires:	sed
 BuildRequires:	texinfo
 Requires(post):	ldconfig = %{epoch}:%{version}-%{release}
-Requires:	%{name}-misc = %{epoch}:%{version}-%{release}
 Provides:	glibc(nptl)
 Provides:	glibc(tls)
 Provides:	rtld(GNU_HASH)
+Obsoletes:	glibc-misc
 Suggests:	localedb-src
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
@@ -68,15 +72,6 @@ programs. This package contains the most important sets of shared
 libraries, the standard C library and the standard math library.
 Without these, a Linux system will not function. It also contains
 national language (locale) support.
-
-%package misc
-Summary:	Utilities and data used by glibc
-Group:		Applications/System
-AutoReq:	false
-Requires:	%{name} = %{epoch}:%{version}-%{release}
-
-%description misc
-Utilities and data used by glibc.
 
 %package devel
 Summary:	Additional libraries required to compile
@@ -177,19 +172,6 @@ Requires:	sed
 This add-on package contains the data needed to build the locale data
 files to use the internationalization features of the GNU libc.
 
-%package localedb-all
-Summary:	locale database for all locales supported by glibc
-Group:		Libraries
-Requires:	%{name} = %{epoch}:%{version}-%{release}
-Requires:	iconv = %{epoch}:%{version}-%{release}
-
-%description localedb-all
-This package contains locale database for all locales supported by
-glibc. In glibc 2.3.x it's one large file (about 39MB) - if you want
-something smaller with support for chosen locales only, consider
-installing localedb-src and regenerating database using localedb-gen
-script (when database is generated, localedb-src can be uninstalled).
-
 %package -n iconv
 Summary:	Convert encoding of given files from one encoding to another
 Group:		Libraries
@@ -210,6 +192,14 @@ Obsoletes:	libiconv-static
 
 %description static
 GNU libc static libraries.
+
+%package -n nss_db
+Summary:	DB NSS glibc module
+Group:		Base
+Requires:	%{name} = %{epoch}:%{version}-%{release}
+
+%description -n nss_db
+DB NSS glibc module.
 
 %package -n nss_compat
 Summary:	Old style NYS NSS glibc module
@@ -273,7 +263,6 @@ library which is a smaller subset of the standard libc shared library.
 %setup -q
 %patch0 -p1
 %patch1 -p1
-%patch2 -p1
 
 %ifarch %{ix86}
 # no need to search for libs in /usr/{lib32x,lib64} on x86
@@ -290,7 +279,9 @@ rm -rf builddir
 install -d builddir
 cd builddir
 
+echo "localedir=%{_prefix}/lib/locale" >> configparms
 echo "slibdir=%{_libdir}" >> configparms
+echo "rtlddir=%{_libdir}" >> configparms
 echo "sbindir=%{_sbindir}" >> configparms
 echo "rootsbindir=%{_sbindir}" >> configparms
 
@@ -301,9 +292,9 @@ echo "rootsbindir=%{_sbindir}" >> configparms
 	libc_cv_forced_unwind=yes	\
 %endif
 	--disable-profile		\
-	--enable-add-ons=nptl,libidn	\
+	--enable-add-ons		\
 	--enable-bind-now		\
-	--enable-kernel="2.6.34"	\
+	--enable-kernel=2.6.32		\
 	--enable-lock-elision		\
 	--enable-obsolete-rpc		\
 	--with-headers=%{_includedir}	\
@@ -316,7 +307,7 @@ cd ..
 
 %install
 rm -rf $RPM_BUILD_ROOT
-install -d $RPM_BUILD_ROOT{/etc/{default,logrotate.d,sysconfig},%{_mandir}/man{3,8},/var/log,/var/cache/ldconfig}
+install -d $RPM_BUILD_ROOT{%{_prefix}/lib/locale,/var/log,/var/cache/ldconfig}
 
 cd builddir
 env LANGUAGE=C LC_ALL=C \
@@ -324,14 +315,6 @@ env LANGUAGE=C LC_ALL=C \
 	install_root=$RPM_BUILD_ROOT \
 	infodir=%{_infodir} \
 	mandir=%{_mandir}
-
-PICFILES="libc_pic.a libc.map
-	math/libm_pic.a libm.map
-	resolv/libresolv_pic.a"
-
-install -p $PICFILES $RPM_BUILD_ROOT%{_libdir}
-install -p elf/soinit.os $RPM_BUILD_ROOT%{_libdir}/soinit.o
-install -p elf/sofini.os $RPM_BUILD_ROOT%{_libdir}/sofini.o
 
 # Include %{_libdir}/gconv/gconv-modules.cache
 %ifarch %{x8664}
@@ -344,6 +327,20 @@ GCONV_PATH=$(pwd)/iconvdata LC_ALL=C $(pwd)/elf/ld-linux.so.2 \
 cd ..
 
 install glibc-postinst $RPM_BUILD_ROOT%{_sbindir}
+install %{SOURCE3} $RPM_BUILD_ROOT%{_sysconfdir}/nsswitch.conf
+install posix/gai.conf $RPM_BUILD_ROOT%{_sysconfdir}
+
+: > $RPM_BUILD_ROOT%{_sysconfdir}/ld.so.cache
+install -d $RPM_BUILD_ROOT%{_sysconfdir}/ld.so.conf.d
+echo 'include ld.so.conf.d/*.conf' > $RPM_BUILD_ROOT%{_sysconfdir}/ld.so.conf
+: > $RPM_BUILD_ROOT/var/cache/ldconfig/aux-cache
+
+# localedb-gen infrastructure
+sed -e 's,@localedir@,%{_prefix}/lib/locale,' %{SOURCE4} > $RPM_BUILD_ROOT%{_bindir}/localedb-gen
+chmod +x $RPM_BUILD_ROOT%{_bindir}/localedb-gen
+install %{SOURCE5} $RPM_BUILD_ROOT%{_sysconfdir}/localedb.gen
+%{__sed} -e '1,3d' -e 's|/| |g' -e 's|\\| |g' -e 's|^|#|g' \
+    localedata/SUPPORTED >> $RPM_BUILD_ROOT%{_sysconfdir}/localedb.gen
 
 # make symlinks across top-level directories absolute
 for l in BrokenLocale anl cidn crypt dl m nsl resolv rt thread_db util; do
@@ -352,23 +349,10 @@ for l in BrokenLocale anl cidn crypt dl m nsl resolv rt thread_db util; do
     ln -sf $(basename $RPM_BUILD_ROOT%{_libdir}/lib${l}.so.*) $RPM_BUILD_ROOT%{_libdir}/lib${l}.so
 done
 
-%{__sed} -e 's#\([ \t]\)db\([ \t]\)#\1#g' nss/nsswitch.conf > $RPM_BUILD_ROOT%{_sysconfdir}/nsswitch.conf
-install posix/gai.conf $RPM_BUILD_ROOT%{_sysconfdir}
-cp -a nis/nss $RPM_BUILD_ROOT/etc/default/nss
-
-: > $RPM_BUILD_ROOT%{_sysconfdir}/ld.so.cache
-install -d $RPM_BUILD_ROOT%{_sysconfdir}/ld.so.conf.d
-echo 'include ld.so.conf.d/*.conf' > $RPM_BUILD_ROOT%{_sysconfdir}/ld.so.conf
-: > $RPM_BUILD_ROOT/var/cache/ldconfig/aux-cache
-
-# doesn't fit with out tzdata concept and configure.in is stupid assuming bash
-# is first posix compatible shell making this script depend on bash.
-%{__rm} $RPM_BUILD_ROOT%{_bindir}/tzselect
-
-rm -fr documentation
+# additional documentation, don't use __rm macro here
+rm -rf documentation
 install -d documentation
-
-for f in ANNOUNCE ChangeLog DESIGN-{barrier,condvar,rwlock,sem}.txt TODO{,-kernel,-testing}; do
+for f in DESIGN-{barrier,condvar,rwlock,sem}.txt TODO{,-kernel,-testing}; do
 	cp -af nptl/$f documentation/$f.nptl
 done
 cp -af crypt/README.ufc-crypt ChangeLog* documentation
@@ -382,6 +366,16 @@ for i in $RPM_BUILD_ROOT%{_localedir}/*; do
 		echo "%lang($lang) $dir" >> glibc.lang
 	fi
 done
+
+# post-install clean up
+%{__rm} $RPM_BUILD_ROOT%{_infodir}/dir
+# remove the static libraries that have a shared counterpart
+# libc, libdl, libm and libpthread are required for toolchain testsuites
+# in addition libcrypt appears widely required
+%{__rm} $RPM_BUILD_ROOT%{_libdir}/lib{anl,BrokenLocale,nsl,resolv,rt,util}.a
+# doesn't fit with out tzdata concept and configure.in is stupid assuming bash
+# is first posix compatible shell making this script depend on bash.
+%{__rm} $RPM_BUILD_ROOT%{_bindir}/tzselect
 
 # NOTES:
 # Languages not supported by glibc locales, but usable via $LANGUAGE:
@@ -494,14 +488,6 @@ for i in af be bg ca cs da de el en eo es et eu fi fr ga gl hr hu ia id it ja kk
 	install -d $RPM_BUILD_ROOT%{_localedir}/$i/LC_TIME
 done
 
-# localedb-gen infrastructure
-%{__sed} -e 's,@localedir@,%{_libdir}/locale,' %{SOURCE1} > $RPM_BUILD_ROOT%{_bindir}/localedb-gen
-chmod +x $RPM_BUILD_ROOT%{_bindir}/localedb-gen
-install localedata/SUPPORTED $RPM_BUILD_ROOT%{_datadir}/i18n
-
-# shutup check-files
-%{__rm} -f $RPM_BUILD_ROOT%{_infodir}/dir
-
 %if 0
 %check
 cd builddir
@@ -511,7 +497,7 @@ cd builddir
 %clean
 rm -rf $RPM_BUILD_ROOT
 
-%post	-p /usr/sbin/postshell
+%post -p /usr/sbin/postshell
 /usr/sbin/glibc-postinst %{_libdir}/%{_host_cpu} %{_libdir}/tls
 /usr/sbin/ldconfig
 
@@ -520,15 +506,9 @@ rm -rf $RPM_BUILD_ROOT
 %post -n iconv -p %{_sbindir}/iconvconfig
 
 %post -n localedb-src
-SUPPORTED_LOCALES=
-[ -f /etc/sysconfig/i18n ] && . /etc/sysconfig/i18n
-[ -f /etc/sysconfig/localedb ] && . /etc/sysconfig/localedb
-[ -f /etc/locale.conf ] && . /etc/locale.conf
-if [ "$SUPPORTED_LOCALES" ]; then
-	localedb-gen || :
-fi
+localedb-gen ||:
 
-%post	devel -p /usr/sbin/postshell
+%post devel -p /usr/sbin/postshell
 -/usr/sbin/fix-info-dir -c %{_infodir}
 
 %postun	devel -p /usr/sbin/postshell
@@ -537,15 +517,26 @@ fi
 %files -f %{name}.lang
 %defattr(644,root,root,755)
 %doc README NEWS BUGS
+%attr(755,root,root) %{_bindir}/catchsegv
+%attr(755,root,root) %{_bindir}/getconf
+%attr(755,root,root) %{_bindir}/getent
+%attr(755,root,root) %{_bindir}/iconv
+%attr(755,root,root) %{_bindir}/ldd
+%attr(755,root,root) %{_bindir}/pldd
+%attr(755,root,root) %{_bindir}/locale
+%attr(755,root,root) %{_bindir}/rpcgen
+%attr(755,root,root) %{_sbindir}/sln
+%attr(755,root,root) %{_sbindir}/zdump
+%attr(755,root,root) %{_sbindir}/zic
 %attr(755,root,root) %{_sbindir}/glibc-postinst
-%dir %{_libexecdir}
-%attr(755,root,root) %{_libdir}/ld-2.1?.so
 %ifarch %{x8664}
 %attr(755,root,root) %{_libdir}/ld-linux-x86-64.so.2
 %endif
 %ifarch %{ix86}
+%attr(755,root,root) %{_bindir}/lddlibc4
 %attr(755,root,root) %{_libdir}/ld-linux.so.2
 %endif
+%attr(755,root,root) %{_libdir}/ld-2.20.so
 %attr(755,root,root) %{_libdir}/libBrokenLocale-*.so
 %attr(755,root,root) %{_libdir}/libBrokenLocale.so.1
 %attr(755,root,root) %{_libdir}/libSegFault.so
@@ -563,6 +554,10 @@ fi
 %attr(755,root,root) %{_libdir}/libm.so.6
 %attr(755,root,root) %{_libdir}/libnsl-*.so
 %attr(755,root,root) %{_libdir}/libnsl.so.1
+%attr(755,root,root) %{_libdir}/libnss_dns-*.so
+%attr(755,root,root) %{_libdir}/libnss_dns.so.2
+%attr(755,root,root) %{_libdir}/libnss_files-*.so
+%attr(755,root,root) %{_libdir}/libnss_files.so.2
 %attr(755,root,root) %{_libdir}/libpthread-*.so
 %attr(755,root,root) %{_libdir}/libpthread.so.0
 %attr(755,root,root) %{_libdir}/libresolv-*.so
@@ -574,18 +569,17 @@ fi
 %attr(755,root,root) %{_libdir}/libutil-*.so
 %attr(755,root,root) %{_libdir}/libutil.so.1
 
-%defattr(644,root,root,755)
-%attr(755,root,root) %{_libdir}/libnss_dns-*.so
-%attr(755,root,root) %{_libdir}/libnss_dns.so.2
+%config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/nsswitch.conf
+%config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/gai.conf
 
-%defattr(644,root,root,755)
-%attr(755,root,root) %{_libdir}/libnss_files-*.so
-%attr(755,root,root) %{_libdir}/libnss_files.so.2
+%config %{_sysconfdir}/rpc
 
-%attr(755,root,root) %{_bindir}/makedb
-%attr(755,root,root) %{_libdir}/libnss_db-*.so
-%attr(755,root,root) %{_libdir}/libnss_db.so.2
-%{_var}/db/Makefile
+%dir %{_libexecdir}
+%dir %{_libexecdir}/getconf
+%attr(755,root,root) %{_libexecdir}/getconf/*
+
+%dir %{_datadir}/locale
+%{_datadir}/locale/locale.alias
 
 %files -n ldconfig
 %defattr(644,root,root,755)
@@ -595,35 +589,6 @@ fi
 %dir %{_sysconfdir}/ld.so.conf.d
 %ghost %attr(600,root,root) /var/cache/ldconfig/aux-cache
 %ghost %{_sysconfdir}/ld.so.cache
-
-%files misc -f %{name}.lang
-%defattr(644,root,root,755)
-%attr(755,root,root) %{_bindir}/catchsegv
-%attr(755,root,root) %{_bindir}/getconf
-%attr(755,root,root) %{_bindir}/getent
-%attr(755,root,root) %{_bindir}/iconv
-%attr(755,root,root) %{_bindir}/ldd
-%attr(755,root,root) %{_bindir}/pldd
-%ifarch %{ix86}
-%attr(755,root,root) %{_bindir}/lddlibc4
-%endif
-%attr(755,root,root) %{_bindir}/locale
-%attr(755,root,root) %{_bindir}/rpcgen
-%attr(755,root,root) %{_sbindir}/sln
-%attr(755,root,root) %{_sbindir}/zdump
-%attr(755,root,root) %{_sbindir}/zic
-
-%config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/nsswitch.conf
-%config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/gai.conf
-%config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/default/nss
-
-%config %{_sysconfdir}/rpc
-
-%dir %{_libexecdir}/getconf
-%attr(755,root,root) %{_libexecdir}/getconf/*
-
-%dir %{_datadir}/locale
-%{_datadir}/locale/locale.alias
 
 %files devel
 %defattr(644,root,root,755)
@@ -693,13 +658,9 @@ fi
 %defattr(644,root,root,755)
 %attr(755,root,root) %{_bindir}/localedef
 %attr(755,root,root) %{_bindir}/localedb-gen
+%config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/localedb.gen
+%dir %{_prefix}/lib/locale
 %{_datadir}/i18n
-
-%if 0
-%files localedb-all
-%defattr(644,root,root,755)
-%{_libdir}/locale/locale-archive
-%endif
 
 %files -n iconv
 %defattr(644,root,root,755)
@@ -711,18 +672,19 @@ fi
 
 %files static
 %defattr(644,root,root,755)
-%{_libdir}/libanl.a
-%{_libdir}/libBrokenLocale.a
 %{_libdir}/libc.a
 %{_libdir}/libcrypt.a
 %{_libdir}/libdl.a
 %{_libdir}/libm.a
 %{_libdir}/libmcheck.a
-%{_libdir}/libnsl.a
 %{_libdir}/libpthread.a
-%{_libdir}/libresolv.a
-%{_libdir}/librt.a
-%{_libdir}/libutil.a
+
+%files -n nss_db
+%defattr(644,root,root,755)
+%attr(755,root,root) %{_bindir}/makedb
+%attr(755,root,root) %{_libdir}/libnss_db-*.so
+%attr(755,root,root) %{_libdir}/libnss_db.so.2
+%{_var}/db/Makefile
 
 %files -n nss_compat
 %defattr(644,root,root,755)
@@ -743,11 +705,4 @@ fi
 %defattr(644,root,root,755)
 %attr(755,root,root) %{_libdir}/libnss_nisplus-*.so
 %attr(755,root,root) %{_libdir}/libnss_nisplus.so.2
-
-%files pic
-%defattr(644,root,root,755)
-%{_libdir}/lib*_pic.a
-%{_libdir}/lib*.map
-%{_libdir}/soinit.o
-%{_libdir}/sofini.o
 
