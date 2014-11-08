@@ -9,7 +9,7 @@
 Summary:	GNU libc
 Name:		glibc
 Version:	2.20
-Release:	1
+Release:	2
 Epoch:		6
 License:	LGPL v2.1+
 Group:		Libraries
