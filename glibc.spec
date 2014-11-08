@@ -1,5 +1,11 @@
 # based on PLD Linux spec git://git.pld-linux.org/packages/glibc.git
 # includes locale-gen script from Arch Linux
+
+%if "%{_target_base_arch}" != "%{_host_base_arch}"
+%define		with_cross  1
+%define		no_install_post_chrpath    1
+%endif
+
 Summary:	GNU libc
 Name:		glibc
 Version:	2.20
@@ -17,6 +23,9 @@ Source5:	localedb-gen.txt
 #
 Patch0:		%{name}-paths.patch
 Patch1:		%{name}-autoconf.patch
+Patch2:		%{name}-do_ftell_wide-memleak.patch
+Patch3:		%{name}-getifaddrs_internal-segfault.patch
+Patch4:		%{name}-linux-3.16-additions.patch
 URL:		http://www.gnu.org/software/libc/
 BuildRequires:	autoconf
 BuildRequires:	binutils
@@ -263,6 +272,9 @@ library which is a smaller subset of the standard libc shared library.
 %setup -q
 %patch0 -p1
 %patch1 -p1
+%patch2 -p1
+%patch3 -p1
+%patch4 -p1
 
 %ifarch %{ix86}
 # no need to search for libs in /usr/{lib32x,lib64} on x86
@@ -279,31 +291,47 @@ rm -rf builddir
 install -d builddir
 cd builddir
 
-echo "localedir=%{_prefix}/lib/locale" >> configparms
-echo "slibdir=%{_libdir}" >> configparms
-echo "rtlddir=%{_libdir}" >> configparms
-echo "sbindir=%{_sbindir}" >> configparms
-echo "rootsbindir=%{_sbindir}" >> configparms
+cat >> configparms << EOF
+localedir=%{_prefix}/lib/locale
+slibdir=%{_libdir}
+rtlddir=%{_libdir}
+sbindir=%{_sbindir}
+rootsbindir=%{_sbindir}
+EOF
 
-../%configure \
-%if 0
+../configure \
+%if %{with cross}
 	libc_cv_c_cleanup=yes		\
 	libc_cv_ctors_header=yes	\
 	libc_cv_forced_unwind=yes	\
-%endif
-	--disable-profile		\
+	CFLAGS="%{rpmcflags}"		\
+	LDFLAGS="%{rpmldflags}"		\
+	--build=%{_build}		\
+	--host="%{_target_cpu}-freddix-linux"	\
+	--prefix=%{_prefix}		\
+	--bindir=%{_bindir}		\
+	--infodir=%{_infodir}		\
+	--libdir=%{_libdir}		\
+	--libexecdir=%{_libexecdir}	\
+	--mandir=%{_mandir}		\
+	--sbindir=%{_sbindir}		\
+%else
 	--enable-add-ons		\
 	--enable-bind-now		\
-	--enable-kernel=2.6.32		\
 	--enable-lock-elision		\
 	--enable-obsolete-rpc		\
+%endif
+	--disable-profile		\
+	--enable-kernel=2.6.32		\
 	--with-headers=%{_includedir}	\
 	--without-cvs			\
 	--without-selinux
 %{__make}
 cd ..
 
+%if %{without cross}
 %{__cc} %{SOURCE2} %{rpmcflags} -Os -static -o glibc-postinst
+%endif
 
 %install
 rm -rf $RPM_BUILD_ROOT
@@ -326,7 +354,9 @@ GCONV_PATH=$(pwd)/iconvdata LC_ALL=C $(pwd)/elf/ld-linux.so.2 \
 	$(pwd)/iconv/iconvconfig --nostdlib --prefix=$RPM_BUILD_ROOT %{_libdir}/gconv -o $RPM_BUILD_ROOT%{_libdir}/gconv/gconv-modules.cache
 cd ..
 
+%if %{without cross}
 install glibc-postinst $RPM_BUILD_ROOT%{_sbindir}
+%endif
 install %{SOURCE3} $RPM_BUILD_ROOT%{_sysconfdir}/nsswitch.conf
 install posix/gai.conf $RPM_BUILD_ROOT%{_sysconfdir}
 
@@ -497,11 +527,15 @@ cd builddir
 %clean
 rm -rf $RPM_BUILD_ROOT
 
-%post -p /usr/sbin/postshell
+%if %{without cross}
+%post	-p /usr/sbin/postshell
 /usr/sbin/glibc-postinst %{_libdir}/%{_host_cpu} %{_libdir}/tls
 /usr/sbin/ldconfig
+%else
+%post -p /usr/sbin/ldconfig
+%endif
 
-%postun	-p /usr/sbin/ldconfig
+%postun -p /usr/sbin/ldconfig
 
 %post -n iconv -p %{_sbindir}/iconvconfig
 
@@ -528,7 +562,9 @@ localedb-gen ||:
 %attr(755,root,root) %{_sbindir}/sln
 %attr(755,root,root) %{_sbindir}/zdump
 %attr(755,root,root) %{_sbindir}/zic
+%if %{without cross}
 %attr(755,root,root) %{_sbindir}/glibc-postinst
+%endif
 %ifarch %{x8664}
 %attr(755,root,root) %{_libdir}/ld-linux-x86-64.so.2
 %endif
