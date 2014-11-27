@@ -6,10 +6,12 @@
 %define		no_install_post_chrpath    1
 %endif
 
+%undefine	with_cross
+
 Summary:	GNU libc
 Name:		glibc
 Version:	2.20
-Release:	2
+Release:	5
 Epoch:		6
 License:	LGPL v2.1+
 Group:		Libraries
@@ -23,9 +25,7 @@ Source5:	localedb-gen.txt
 #
 Patch0:		%{name}-paths.patch
 Patch1:		%{name}-autoconf.patch
-Patch2:		%{name}-do_ftell_wide-memleak.patch
-Patch3:		%{name}-getifaddrs_internal-segfault.patch
-Patch4:		%{name}-linux-3.16-additions.patch
+Patch2:		%{name}-branch.patch
 URL:		http://www.gnu.org/software/libc/
 BuildRequires:	autoconf
 BuildRequires:	binutils
@@ -273,8 +273,6 @@ library which is a smaller subset of the standard libc shared library.
 %patch0 -p1
 %patch1 -p1
 %patch2 -p1
-%patch3 -p1
-%patch4 -p1
 
 %ifarch %{ix86}
 # no need to search for libs in /usr/{lib32x,lib64} on x86
@@ -299,8 +297,8 @@ sbindir=%{_sbindir}
 rootsbindir=%{_sbindir}
 EOF
 
-../configure \
 %if %{with cross}
+../configure \
 	libc_cv_c_cleanup=yes		\
 	libc_cv_ctors_header=yes	\
 	libc_cv_forced_unwind=yes	\
@@ -316,9 +314,11 @@ EOF
 	--mandir=%{_mandir}		\
 	--sbindir=%{_sbindir}		\
 %else
+../%configure \
 	--enable-add-ons		\
 	--enable-bind-now		\
 	--enable-lock-elision		\
+	--enable-multi-arch		\
 	--enable-obsolete-rpc		\
 %endif
 	--disable-profile		\
@@ -338,20 +338,19 @@ rm -rf $RPM_BUILD_ROOT
 install -d $RPM_BUILD_ROOT{%{_prefix}/lib/locale,/var/log,/var/cache/ldconfig}
 
 cd builddir
-env LANGUAGE=C LC_ALL=C \
 %{__make} install \
 	install_root=$RPM_BUILD_ROOT \
 	infodir=%{_infodir} \
 	mandir=%{_mandir}
 
 # Include %{_libdir}/gconv/gconv-modules.cache
-%ifarch %{x8664}
-GCONV_PATH=$(pwd)/iconvdata LC_ALL=C $(pwd)/elf/ld-linux-x86-64.so.2 \
-%else
-GCONV_PATH=$(pwd)/iconvdata LC_ALL=C $(pwd)/elf/ld-linux.so.2 \
-%endif
-	--library-path $(pwd):$(pwd)/math:$(pwd)/elf:$(pwd)/dlfcn:$(pwd)/nss:$(pwd)/nis:$(pwd)/rt:$(pwd)/resolv:$(pwd)/crypt:$(pwd)/nptl \
-	$(pwd)/iconv/iconvconfig --nostdlib --prefix=$RPM_BUILD_ROOT %{_libdir}/gconv -o $RPM_BUILD_ROOT%{_libdir}/gconv/gconv-modules.cache
+./elf/ld.so \
+    --inhibit-cache \
+    --library-path . \
+    ./iconv/iconvconfig \
+    --nostdlib %{_libdir}/gconv \
+    --prefix=$RPM_BUILD_ROOT \
+    -o $RPM_BUILD_ROOT%{_libdir}/gconv/gconv-modules.cache
 cd ..
 
 %if %{without cross}
