@@ -10,13 +10,13 @@
 
 Summary:	GNU libc
 Name:		glibc
-Version:	2.20
-Release:	6
+Version:	2.21
+Release:	2
 Epoch:		6
 License:	LGPL v2.1+
 Group:		Libraries
 Source0:	http://ftp.gnu.org/pub/gnu/glibc/%{name}-%{version}.tar.xz
-# Source0-md5:	948a6e06419a01bd51e97206861595b0
+# Source0-md5:	9cb398828e8f84f57d1f7d5588cf40cd
 Source1:	localedb-gen
 Source2:	%{name}-LD-path.c
 Source3:	nsswitch.conf
@@ -24,8 +24,7 @@ Source4:	localedb-gen
 Source5:	localedb-gen.txt
 #
 Patch0:		%{name}-paths.patch
-Patch1:		%{name}-autoconf.patch
-Patch2:		%{name}-branch.patch
+Patch1:		%{name}-branch.patch
 URL:		http://www.gnu.org/software/libc/
 BuildRequires:	autoconf
 BuildRequires:	binutils
@@ -272,15 +271,11 @@ library which is a smaller subset of the standard libc shared library.
 %setup -q
 %patch0 -p1
 %patch1 -p1
-%patch2 -p1
 
 %ifarch %{ix86}
 # no need to search for libs in /usr/{lib32x,lib64} on x86
 %{__sed} -i "s#add_system_dir#do_not_add_system_dir#" sysdeps/unix/sysv/linux/x86_64/dl-cache.h
 %endif
-
-# cleanup backups after patching
-find '(' -name '*~' -o -name '*.orig' ')' -print0 | xargs -0 -r -l512 rm -f
 
 chmod +x scripts/cpp
 
@@ -322,6 +317,7 @@ EOF
 	--enable-obsolete-rpc		\
 %endif
 	--disable-profile		\
+	--disable-werror		\
 	--enable-kernel=2.6.32		\
 	--with-headers=%{_includedir}	\
 	--without-cvs			\
@@ -381,7 +377,7 @@ done
 # additional documentation, don't use __rm macro here
 rm -rf documentation
 install -d documentation
-for f in DESIGN-{barrier,condvar,rwlock,sem}.txt TODO{,-kernel,-testing}; do
+for f in DESIGN-{barrier,condvar,rwlock}.txt TODO{,-kernel,-testing}; do
 	cp -af nptl/$f documentation/$f.nptl
 done
 cp -af crypt/README.ufc-crypt ChangeLog* documentation
@@ -571,7 +567,7 @@ localedb-gen ||:
 %attr(755,root,root) %{_bindir}/lddlibc4
 %attr(755,root,root) %{_libdir}/ld-linux.so.2
 %endif
-%attr(755,root,root) %{_libdir}/ld-2.20.so
+%attr(755,root,root) %{_libdir}/ld-2.21.so
 %attr(755,root,root) %{_libdir}/libBrokenLocale-*.so
 %attr(755,root,root) %{_libdir}/libBrokenLocale.so.1
 %attr(755,root,root) %{_libdir}/libSegFault.so
